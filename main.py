@@ -52,9 +52,12 @@ def getDataFromGUI(dataframe):
     epochValue = int(epochTextField.get())
     layersValue = int(layersTextField.get())
     neuronsValue = neuronsTextField.get()
+    # Split neurons string in to list of integers
     neuronsValue = neuronsValue.split()
-    for i in range(len(neuronsValue)):
-        neuronsValue[i] = int(neuronsValue[i])
+    neuronsValue = [eval(x) for x in neuronsValue]
+    # Combine hidden layers and neurons into dictionary
+    hiddenLayers = dict(zip(range(layersValue), neuronsValue))
+    print('Hidden Layers: ', hiddenLayers)
 
     if biasCheckBox.get() == 0:
         bias = 0
@@ -63,8 +66,7 @@ def getDataFromGUI(dataframe):
 
     trainSet, testSet = dataSplitter(dataframe)
 
-    weightMatrix = np.random.rand(3, 1)
-    forward(trainSet, bias, etaValue, epochValue, layersValue, neuronsValue)
+    forward(trainSet, bias, etaValue, epochValue, hiddenLayers)
     # test(weightMatrix, testData, feature1, feature2, bias)
 
 
@@ -85,16 +87,16 @@ def dataSplitter(dataframe):
     return trainSet, testSet
 
 
-def forward(trainSet, bias, etaValue, epochValue, hiddenLayers, neurons):
+def forward(trainSet, bias, etaValue, epochValue, hiddenLayers):
     savedWeightDict = {}
-    for i in range(hiddenLayers):
+    for i in hiddenLayers:
         # initialize weight matrix
-        print()
         if i == 0:
-            print('dassad')
-            weightMatrix = np.random.rand(hiddenLayers, 5)
+            weightMatrix = np.random.rand(6, hiddenLayers[i])
+            print(i, weightMatrix.shape)
         else:
-            weightMatrix = np.random.rand(hiddenLayers, hiddenLayers - 1)
+            weightMatrix = np.random.rand(hiddenLayers[i], hiddenLayers[i - 1] + 1)
+            print(i, weightMatrix.shape)
 
         for x in range(epochValue):
             for j in trainSet.index:
@@ -103,7 +105,7 @@ def forward(trainSet, bias, etaValue, epochValue, hiddenLayers, neurons):
                              trainSet['flipper_length_mm'][j],
                              trainSet['gender'][j], trainSet['body_mass_g'][j]]]
                 # selecting actual class
-                actualClass = None
+                actualClass = ''
                 if trainSet['species'][j] == 1:
                     actualClass = [1, 0, 0]
                 elif trainSet['species'][j] == 2:
@@ -111,12 +113,17 @@ def forward(trainSet, bias, etaValue, epochValue, hiddenLayers, neurons):
                 else:
                     actualClass = [0, 0, 1]
 
-                print(type(features))
-                print(weightMatrix.shape)
-                weightMatrix = weightMatrix.transpose()
-                print(weightMatrix.shape)
-                yi = np.dot(features, weightMatrix.T)
-                print(yi)
+                net = np.dot(features, weightMatrix)
+                print('result', net.shape)
+
+
+def activationFunction(net, selectedFunction):
+    # Sigmoid
+    if selectedFunction == 'Sigmoid':
+        return 1 / (1 + np.exp(-net))
+    else:
+        return
+
 
 
 if __name__ == '__main__':
@@ -128,13 +135,17 @@ if __name__ == '__main__':
     main_window.geometry("512x512")
 
     # Add number of layers
+    layersText = StringVar()
     layersHeader = Label(main_window, text="Number of layer").pack()
-    layersTextField = ttk.Entry(main_window, width=20)
+    layersTextField = ttk.Entry(main_window, width=20, textvariable=layersText)
+    layersText.set('2')
     layersTextField.pack()
 
     # Add number of neurons
+    neuronsText = StringVar()
     neuronsHeader = Label(main_window, text="Add Neurons").pack()
-    neuronsTextField = ttk.Entry(main_window, width=20)
+    neuronsTextField = ttk.Entry(main_window, width=20, textvariable=neuronsText)
+    neuronsText.set('7 5')
     neuronsTextField.pack()
 
     # Select Activation function
@@ -143,14 +154,18 @@ if __name__ == '__main__':
     activationFunctionValue.set(activationFunction[0])
     feature1DropMenu = OptionMenu(main_window, activationFunctionValue, *activationFunction).pack()
 
-    # Add threshold
+    # Add learning rate
+    learnText = StringVar()
     LearningRateHeader = Label(main_window, text="Learning Rate").pack()
-    LearningRateTextField = ttk.Entry(main_window, width=20)
+    LearningRateTextField = ttk.Entry(main_window, width=20, textvariable=learnText)
+    learnText.set('0.1')
     LearningRateTextField.pack()
 
     # Add epoch
+    epochText = StringVar()
     epochHeader = Label(main_window, text="Epochs").pack()
-    epochTextField = ttk.Entry(main_window, width=20)
+    epochTextField = ttk.Entry(main_window, width=20, textvariable=epochText)
+    epochText.set('1')
     epochTextField.pack()
 
     # Select Bias
