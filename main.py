@@ -94,6 +94,7 @@ def forward(trainSet, bias, etaValue, epochValue, hiddenLayers, selectedFunction
     features = np.zeros([])
     net = np.zeros([])
     fNet = np.zeros([])
+    outputLayer = np.random.rand(1, 3)
     for x in range(epochValue):
 
         for i in hiddenLayers:
@@ -121,17 +122,20 @@ def forward(trainSet, bias, etaValue, epochValue, hiddenLayers, selectedFunction
                                  trainSet['gender'][j], trainSet['body_mass_g'][j]]]
                     features = np.array(features)
                     net = np.dot(features, weightMatrix) + bias
-                    fNet = activationFunction(net, selectedFunction)
                     # print(i, features.shape, weightMatrix.shape, fNet.shape)
+                elif i == len(hiddenLayers) - 1:
+                    try:
+                        net = np.dot(fNet.T, outputLayer.T) + bias
+                    except:
+                        net = np.dot(fNet, outputLayer.T) + bias
                 else:
                     try:
                         net = np.dot(fNet, weightMatrix) + bias
                     except:
                         net = np.dot(fNet, weightMatrix.T) + bias
-                    fNet = activationFunction(net, selectedFunction)
+                fNet = activationFunction(net, selectedFunction)
             savedWeight.append(weightMatrix)
-        print('result', net.shape)
-        print(savedWeight[1])
+        print(savedWeight)
 
 
 # def backward()
