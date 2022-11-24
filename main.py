@@ -6,8 +6,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.utils import shuffle
 from sklearn.model_selection import train_test_split
+import random
 
-activationFunction = [
+functions = [
     "Sigmoid",
     "Hyperbloic Tangent",
 ]
@@ -47,7 +48,7 @@ def dataNormalization(dataFrame):
 
 # get all data from gui
 def getDataFromGUI(dataframe):
-    activationFunction = activationFunctionValue.get()
+    selectedFunction = functionValue.get()
     etaValue = float(LearningRateTextField.get())
     epochValue = int(epochTextField.get())
     layersValue = int(layersTextField.get())
@@ -62,11 +63,11 @@ def getDataFromGUI(dataframe):
     if biasCheckBox.get() == 0:
         bias = 0
     else:
-        bias = 1
+        bias = random.random()
 
     trainSet, testSet = dataSplitter(dataframe)
 
-    forward(trainSet, bias, etaValue, epochValue, hiddenLayers)
+    forward(trainSet, bias, etaValue, epochValue, hiddenLayers, selectedFunction)
     # test(weightMatrix, testData, feature1, feature2, bias)
 
 
@@ -87,23 +88,30 @@ def dataSplitter(dataframe):
     return trainSet, testSet
 
 
-def forward(trainSet, bias, etaValue, epochValue, hiddenLayers):
-    savedWeightDict = {}
-    for i in hiddenLayers:
-        # initialize weight matrix
-        if i == 0:
-            weightMatrix = np.random.rand(6, hiddenLayers[i])
-            print(i, weightMatrix.shape)
-        else:
-            weightMatrix = np.random.rand(hiddenLayers[i], hiddenLayers[i - 1] + 1)
-            print(i, weightMatrix.shape)
+def forward(trainSet, bias, etaValue, epochValue, hiddenLayers, selectedFunction):
+    savedWeight = []
+    weightMatrix = np.zeros([])
+    features = np.zeros([])
+    net = np.zeros([])
+    fNet = np.zeros([])
+    for x in range(epochValue):
 
-        for x in range(epochValue):
+        for i in hiddenLayers:
+            print('==============================================================')
+            # initialize weight matrix
+            if i == 0:
+                weightMatrix = np.random.rand(hiddenLayers[i], 5)
+            else:
+                weightMatrix = np.random.rand(hiddenLayers[i], hiddenLayers[i - 1])
+
+            weightMatrix = np.transpose(weightMatrix)
+
             for j in trainSet.index:
                 # selecting features
-                features = [[bias, trainSet['bill_length_mm'][j], trainSet['bill_depth_mm'][j],
+                features = [[trainSet['bill_length_mm'][j], trainSet['bill_depth_mm'][j],
                              trainSet['flipper_length_mm'][j],
                              trainSet['gender'][j], trainSet['body_mass_g'][j]]]
+                features = np.array(features)
                 # selecting actual class
                 actualClass = ''
                 if trainSet['species'][j] == 1:
@@ -113,17 +121,32 @@ def forward(trainSet, bias, etaValue, epochValue, hiddenLayers):
                 else:
                     actualClass = [0, 0, 1]
 
-                net = np.dot(features, weightMatrix)
-                print('result', net.shape)
+                if i == 0:
+                    net = np.dot(features, weightMatrix)
+                    # np.sum(net, bias)
+                    fNet = activationFunction(net, selectedFunction)
+                    print(i, features.shape, weightMatrix.shape, fNet.shape)
+                else:
+                    try:
+                        net = np.dot(fNet, weightMatrix)
+                    except:
+                        net = np.dot(fNet, weightMatrix.T)
+
+                    np.sum(net, bias)
+                    fNet = activationFunction(net, selectedFunction)
+
+            savedWeight.append(weightMatrix)
+        print('result', net.shape)
+        print(len(savedWeight))
 
 
 def activationFunction(net, selectedFunction):
     # Sigmoid
     if selectedFunction == 'Sigmoid':
         return 1 / (1 + np.exp(-net))
+    # todo: implement Tanh activation function
     else:
-        return
-
+        return 1
 
 
 if __name__ == '__main__':
@@ -149,10 +172,10 @@ if __name__ == '__main__':
     neuronsTextField.pack()
 
     # Select Activation function
-    activationFunctionHeader = Label(main_window, text="Select Activation Function").pack()
-    activationFunctionValue = StringVar()
-    activationFunctionValue.set(activationFunction[0])
-    feature1DropMenu = OptionMenu(main_window, activationFunctionValue, *activationFunction).pack()
+    functionHeader = Label(main_window, text="Select Activation Function").pack()
+    functionValue = StringVar()
+    functionValue.set(functions[0])
+    feature1DropMenu = OptionMenu(main_window, functionValue, *functions).pack()
 
     # Add learning rate
     learnText = StringVar()
