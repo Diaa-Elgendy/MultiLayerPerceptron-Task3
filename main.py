@@ -107,12 +107,6 @@ def forward(trainSet, bias, etaValue, epochValue, hiddenLayers, selectedFunction
             weightMatrix = np.transpose(weightMatrix)
 
             for j in trainSet.index:
-                # selecting features
-                features = [[trainSet['bill_length_mm'][j], trainSet['bill_depth_mm'][j],
-                             trainSet['flipper_length_mm'][j],
-                             trainSet['gender'][j], trainSet['body_mass_g'][j]]]
-                features = np.array(features)
-                # selecting actual class
                 actualClass = ''
                 if trainSet['species'][j] == 1:
                     actualClass = [1, 0, 0]
@@ -122,24 +116,25 @@ def forward(trainSet, bias, etaValue, epochValue, hiddenLayers, selectedFunction
                     actualClass = [0, 0, 1]
 
                 if i == 0:
-                    net = np.dot(features, weightMatrix)
-                    # np.sum(net, bias)
+                    features = [[trainSet['bill_length_mm'][j], trainSet['bill_depth_mm'][j],
+                                 trainSet['flipper_length_mm'][j],
+                                 trainSet['gender'][j], trainSet['body_mass_g'][j]]]
+                    features = np.array(features)
+                    net = np.dot(features, weightMatrix) + bias
                     fNet = activationFunction(net, selectedFunction)
-                    print(i, features.shape, weightMatrix.shape, fNet.shape)
+                    # print(i, features.shape, weightMatrix.shape, fNet.shape)
                 else:
                     try:
-                        net = np.dot(fNet, weightMatrix)
+                        net = np.dot(fNet, weightMatrix) + bias
                     except:
-                        net = np.dot(fNet, weightMatrix.T)
-
-                    np.sum(net, bias)
+                        net = np.dot(fNet, weightMatrix.T) + bias
                     fNet = activationFunction(net, selectedFunction)
-
             savedWeight.append(weightMatrix)
         print('result', net.shape)
-        print(len(savedWeight))
+        print(savedWeight[1])
 
 
+# def backward()
 def activationFunction(net, selectedFunction):
     # Sigmoid
     if selectedFunction == 'Sigmoid':
