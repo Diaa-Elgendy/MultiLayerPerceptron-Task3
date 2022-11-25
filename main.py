@@ -8,6 +8,8 @@ from sklearn.utils import shuffle
 from sklearn.model_selection import train_test_split
 import random
 
+selectedFunction = ''
+
 functions = [
     "Sigmoid",
     "Hyperbloic Tangent",
@@ -88,64 +90,61 @@ def dataSplitter(dataframe):
     return trainSet, testSet
 
 
-def forward(trainSet, bias, etaValue, epochValue, hiddenLayers, selectedFunction):
+def forward(trainSet, bias, etaValue, epochValue, hiddenLayers):
+    savedNet = []
     savedWeight = []
-    weightMatrix = np.zeros([])
-    features = np.zeros([])
-    net = np.zeros([])
     fNet = np.zeros([])
-    outputLayer = np.random.rand(1, 3)
     for x in range(epochValue):
 
-        for i in hiddenLayers:
-            print('==============================================================')
-            # initialize weight matrix
-            if i == 0:
-                weightMatrix = np.random.rand(hiddenLayers[i], 5)
+        for i in trainSet.index:
+
+            features = [[trainSet['bill_length_mm'][i], trainSet['bill_depth_mm'][i],
+                         trainSet['flipper_length_mm'][i],
+                         trainSet['gender'][i], trainSet['body_mass_g'][i]]]
+            features = np.array(features)
+
+            actualClass = ''
+            if trainSet['species'][i] == 1:
+                actualClass = [1, 0, 0]
+            elif trainSet['species'][i] == 2:
+                actualClass = [0, 1, 0]
             else:
-                weightMatrix = np.random.rand(hiddenLayers[i], hiddenLayers[i - 1])
+                actualClass = [0, 0, 1]
 
-            weightMatrix = np.transpose(weightMatrix)
-
-            for j in trainSet.index:
-                actualClass = ''
-                if trainSet['species'][j] == 1:
-                    actualClass = [1, 0, 0]
-                elif trainSet['species'][j] == 2:
-                    actualClass = [0, 1, 0]
-                else:
-                    actualClass = [0, 0, 1]
-
-                if i == 0:
-                    features = [[trainSet['bill_length_mm'][j], trainSet['bill_depth_mm'][j],
-                                 trainSet['flipper_length_mm'][j],
-                                 trainSet['gender'][j], trainSet['body_mass_g'][j]]]
-                    features = np.array(features)
+            for j in hiddenLayers:
+                # initialize weight matrix
+                if j == 0:
+                    weightMatrix = np.random.rand(5, hiddenLayers[j])
                     net = np.dot(features, weightMatrix) + bias
-                    # print(i, features.shape, weightMatrix.shape, fNet.shape)
-                elif i == len(hiddenLayers) - 1:
-                    try:
-                        net = np.dot(fNet.T, outputLayer.T) + bias
-                    except:
-                        net = np.dot(fNet, outputLayer.T) + bias
+                    print(features.shape, weightMatrix.shape, '=', net.shape)
+
                 else:
-                    try:
-                        net = np.dot(fNet, weightMatrix) + bias
-                    except:
-                        net = np.dot(fNet, weightMatrix.T) + bias
+                    weightMatrix = np.random.rand(hiddenLayers[j - 1], hiddenLayers[j])
+                    net = np.dot(fNet, weightMatrix) + bias
                 fNet = activationFunction(net, selectedFunction)
-            savedWeight.append(weightMatrix)
-        print(savedWeight)
+                savedNet.append(fNet)
+                savedWeight.append(weightMatrix)
+            backward(savedNet, savedWeight, actualClass)
 
 
-# def backward()
+def backward(savedNet, savedWeight, actualClass):
+    return 1
+
+
+def derivativeOfActivationFunction(value, selectedFunction):
+    # Sigmoid
+    if selectedFunction == 'Sigmoid':
+        return value * (1 - value)
+    else:
+        return (1 - value) * (1 + value)
+
+
 def activationFunction(net, selectedFunction):
     # Sigmoid
     if selectedFunction == 'Sigmoid':
         return 1 / (1 + np.exp(-net))
-    # todo: implement Tanh activation function
     else:
-        return 1
+        return (1 - np.exp(-net)) / (1 + np.exp(-net))
 
 
 if __name__ == '__main__':
