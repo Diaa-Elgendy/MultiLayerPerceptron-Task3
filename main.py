@@ -9,6 +9,8 @@ from sklearn.model_selection import train_test_split
 import random
 
 selectedFunction = ''
+etaValue = ''
+savedGradient = []
 
 functions = [
     "Sigmoid",
@@ -65,11 +67,11 @@ def getDataFromGUI(dataframe):
     if biasCheckBox.get() == 0:
         bias = 0
     else:
-        bias = random.random()
+        bias = 1
 
     trainSet, testSet = dataSplitter(dataframe)
-
-    forward(trainSet, bias, etaValue, epochValue, hiddenLayers, selectedFunction)
+    for x in range(epochValue):
+        forward(trainSet, bias, etaValue, epochValue, hiddenLayers)
     # test(weightMatrix, testData, feature1, feature2, bias)
 
 
@@ -90,48 +92,72 @@ def dataSplitter(dataframe):
     return trainSet, testSet
 
 
-def forward(trainSet, bias, etaValue, epochValue, hiddenLayers):
+def forward(trainSet, bias, epochValue, hiddenLayers):
     savedNet = []
     savedWeight = []
     fNet = np.zeros([])
-    for x in range(epochValue):
+    biasMatrix = np.zeros([])
+    savedGradient = []
+    for i in trainSet.index:
+        savedNet = []
+        savedGradient = []
+        features = [[trainSet['bill_length_mm'][i], trainSet['bill_depth_mm'][i],
+                     trainSet['flipper_length_mm'][i],
+                     trainSet['gender'][i], trainSet['body_mass_g'][i]]]
+        features = np.array(features)
 
-        for i in trainSet.index:
+        actualClass = ''
+        if trainSet['species'][i] == 1:
+            actualClass = [1, 0, 0]
+        elif trainSet['species'][i] == 2:
+            actualClass = [0, 1, 0]
+        else:
+            actualClass = [0, 0, 1]
 
-            features = [[trainSet['bill_length_mm'][i], trainSet['bill_depth_mm'][i],
-                         trainSet['flipper_length_mm'][i],
-                         trainSet['gender'][i], trainSet['body_mass_g'][i]]]
-            features = np.array(features)
-
-            actualClass = ''
-            if trainSet['species'][i] == 1:
-                actualClass = [1, 0, 0]
-            elif trainSet['species'][i] == 2:
-                actualClass = [0, 1, 0]
+        for j in hiddenLayers:
+            # initialize weight matrix
+            if bias == 0:
+                biasMatrix = np.zeros([1, hiddenLayers[j]])
             else:
-                actualClass = [0, 0, 1]
+                biasMatrix = np.random.rand(1, hiddenLayers[j])
 
-            for j in hiddenLayers:
-                # initialize weight matrix
-                if j == 0:
-                    weightMatrix = np.random.rand(5, hiddenLayers[j])
-                    net = np.dot(features, weightMatrix) + bias
-                    print(features.shape, weightMatrix.shape, '=', net.shape)
-
-                else:
-                    weightMatrix = np.random.rand(hiddenLayers[j - 1], hiddenLayers[j])
-                    net = np.dot(fNet, weightMatrix) + bias
-                fNet = activationFunction(net, selectedFunction)
-                savedNet.append(fNet)
-                savedWeight.append(weightMatrix)
-            backward(savedNet, savedWeight, actualClass)
+            if j == 0:
+                weightMatrix = np.random.rand(5, hiddenLayers[j])
+                net = np.dot(features, weightMatrix) + biasMatrix
+            else:
+                weightMatrix = np.random.rand(hiddenLayers[j - 1], hiddenLayers[j])
+                net = np.dot(fNet, weightMatrix) + biasMatrix
+            fNet = activationFunction(net)
+            savedNet.append(fNet)
+            savedWeight.append(weightMatrix)
+            gradientList = backward(savedNet, savedWeight, actualClass)
+            updateWeight(gradientList, savedWeight, hiddenLayers, features, savedNet)
 
 
-def backward(savedNet, savedWeight, actualClass):
+def backward(savedNet, savedWeight, actual):
+    actual = np.array([actual]).transpose()
+    gradient = np.zeros([])
+    for i in reversed(range(len(savedNet))):
+        if i == 0:
+            gradient = (actual - savedNet[0]) * derivativeOfActivationFunction(savedNet[0])
+        else:
+            gradient = gradient * savedWeight[i] * derivativeOfActivationFunction(savedNet[i])
+        savedGradient.append(gradient)
+    return savedGradient
+
+
+def updateWeight(gradientList, savedWeight, hiddenLayer, features, savedNet):
+    gradientList = gradientList.reverse()
+    for i in hiddenLayer:
+        if i == 0:
+            newWeight = savedWeight[i] + (etaValue * gradientList[i] * features)
+        else:
+            newWeight = savedWeight[i] + (etaValue * gradientList[i] * savedNet[i])
+
     return 1
 
 
-def derivativeOfActivationFunction(value, selectedFunction):
+def derivativeOfActivationFunction(value):
     # Sigmoid
     if selectedFunction == 'Sigmoid':
         return value * (1 - value)
@@ -139,7 +165,7 @@ def derivativeOfActivationFunction(value, selectedFunction):
         return (1 - value) * (1 + value)
 
 
-def activationFunction(net, selectedFunction):
+def activationFunction(net):
     # Sigmoid
     if selectedFunction == 'Sigmoid':
         return 1 / (1 + np.exp(-net))
