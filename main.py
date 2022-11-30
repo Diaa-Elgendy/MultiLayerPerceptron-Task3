@@ -16,13 +16,6 @@ functions = [
     "Hyperbloic Tangent",
 ]
 
-species = [
-    "Adelie",
-    "Gentoo",
-    "Chinstrap",
-]
-
-
 # Remove null values from gender column and convert it to numerical values
 # Normalize all values of all features to range between 0 and 1
 def dataNormalization(dataFrame):
@@ -56,28 +49,25 @@ def getDataFromGUI(dataframe):
     epochValue = int(epochTextField.get())
     layersValue = int(layersTextField.get())
     neuronsValue = neuronsTextField.get()
+    # To get the number of classes for the output layer
+    numberOfClasses = len(dataframe.species.unique())
     # Split neurons string in to list of integers
     neuronsValue = neuronsValue.split()
     neuronsValue = [eval(x) for x in neuronsValue]
-    # Combine hidden layers and neurons into dictionary
-    hiddenLayers = dict(zip(range(layersValue), neuronsValue))
-    print('Hidden Layers: ', hiddenLayers)
+    neuronsValue.append(numberOfClasses)
+    neuronsValue.insert(0, 5)
+    # Combine hidden layers with the output layer and neurons into dictionary
+    # hiddenLayers = dict(zip(range(layersValue+1), neuronsValue))
+    hiddenLayers = neuronsValue
 
+    print('Hidden Layers: ', hiddenLayers)
     if biasCheckBox.get() == 0:
         bias = 0
     else:
         bias = 1
 
     trainSet, testSet = dataSplitter(dataframe)
-
-    lastWeight = list()
-    lastBias = list()
-    for x in range(epochValue):
-        lastWeight, lastBias = forward(trainSet, bias, epochValue, hiddenLayers, etaValue)
-    print('===Train===')
-    test(trainSet, lastWeight, lastBias, hiddenLayers)
-    print('===Test===')
-    test(testSet, lastWeight, lastBias, hiddenLayers)
+    multiLayerPerceptron(epochValue, trainSet, testSet, bias, hiddenLayers, etaValue)
 
 
 # Split train and test dataframes and shuffle them
@@ -101,65 +91,53 @@ def dataSplitter(dataframe):
     return trainSet, testSet
 
 
-def forward(trainSet, bias, epochValue, hiddenLayers, etaValue):
+def multiLayerPerceptron(epochs, trainSet, testSet, bias, hiddenLayers, etaValue):
+    updatedWeightList = list()
+    updatedBiasList = list()
+    for x in range(epochs):
+        for i in range(len(trainSet)):
+            features = [[trainSet['bill_length_mm'][i], trainSet['bill_depth_mm'][i], trainSet['flipper_length_mm'][i],
+                         trainSet['gender'][i], trainSet['body_mass_g'][i]]]
+            actualClass = getActualClass(trainSet['species'][i])
+
+            weightList, biasList, savedNet = forward(features, bias, hiddenLayers, updatedBiasList, updatedWeightList,
+                                                     i)
+            gradientList = backward(savedNet, weightList, actualClass)
+            updatedWeightList, updatedBiasList = updateWeight(gradientList, weightList, hiddenLayers, features,
+                                                              savedNet,
+                                                              etaValue,
+                                                              biasList, bias)
+
+    print('===Train===')
+    test(trainSet, updatedWeightList, updatedBiasList, hiddenLayers)
+    print('===Test===')
+    test(testSet, updatedWeightList, updatedBiasList, hiddenLayers)
+    print('\n\n')
+
+
+def forward(features, bias, hiddenLayers, updatedBiasList, updatedWeightList, layerIndex):
+    weightList = list()
     savedNet = list()
-    savedWeight = list()
-    fNet = np.zeros([])
-    weightMatrix = np.zeros([])
-    biasMatrix = np.zeros([])
-    savedBiasMatrix = list()
-    savedGradient = list()
-
-    for i in range(len(trainSet)):
-        savedNet = []
-        savedGradient = []
-        savedBiasMatrix = []
-        features = [[trainSet['bill_length_mm'][i], trainSet['bill_depth_mm'][i],
-                     trainSet['flipper_length_mm'][i],
-                     trainSet['gender'][i], trainSet['body_mass_g'][i]]]
-        features = np.array(features)
-
-        actualClass = ''
-        if trainSet['species'][i] == 1:
-            actualClass = [1, 0, 0]
-        elif trainSet['species'][i] == 2:
-            actualClass = [0, 1, 0]
+    biasList = list()
+    # To start with fNet as features at each new training sample
+    fNet = features
+    for j in range(len(hiddenLayers) - 1):
+        # initialize weight matrix and bias matrix for first training sample
+        if layerIndex == 0:
+            biasMatrix = np.random.rand(1, hiddenLayers[j + 1]) * bias
+            weightMatrix = np.random.rand(hiddenLayers[j], hiddenLayers[j + 1])
+        # Use updated weight matrix and updated bias matrix from previous train set
         else:
-            actualClass = [0, 0, 1]
+            biasMatrix = updatedBiasList[j]
+            weightMatrix = updatedWeightList[j]
 
-        for j in hiddenLayers:
-            # initialize weight matrix
-            if i == 0:
-                if bias == 0:
-                    biasMatrix = np.zeros([1, hiddenLayers[j]])
-                else:
-                    biasMatrix = np.random.rand(1, hiddenLayers[j])
+        net = np.dot(fNet, weightMatrix) + biasMatrix
+        fNet = activationFunction(net)
+        savedNet.append(fNet)
+        weightList.append(weightMatrix)
+        biasList.append(biasMatrix)
 
-                if j == 0:
-                    weightMatrix = np.random.rand(5, hiddenLayers[j])
-                    net = np.dot(features, weightMatrix) + biasMatrix
-                else:
-                    weightMatrix = np.random.rand(hiddenLayers[j - 1], hiddenLayers[j])
-                    net = np.dot(fNet, weightMatrix) + biasMatrix
-
-            else:
-                biasMatrix = updatedBiasList[j]
-                weightMatrix = updatedWeightsList[j].T
-                if j == 0:
-                    net = np.dot(features, weightMatrix) + biasMatrix
-                else:
-                    net = np.dot(fNet, weightMatrix) + biasMatrix
-
-            fNet = activationFunction(net)
-            savedNet.append(fNet)
-            savedWeight.append(weightMatrix)
-            savedBiasMatrix.append(biasMatrix)
-        gradientList = backward(savedNet, savedWeight, actualClass)
-        updatedWeightsList, updatedBiasList = updateWeight(gradientList, savedWeight, hiddenLayers, features, savedNet,
-                                                           etaValue,
-                                                           savedBiasMatrix, bias)
-
-    return updatedWeightsList, updatedBiasList
+    return weightList, biasList, savedNet
 
 
 def backward(savedNet, savedWeight, actual):
@@ -171,37 +149,28 @@ def backward(savedNet, savedWeight, actual):
         if i == 0:
             gradient = (actual - reversedSavedNet[i]) * derivativeOfActivationFunction(reversedSavedNet[i])
         else:
-            gradient = np.dot(gradient, reversedSavedWeight[i - 1].T, derivativeOfActivationFunction(reversedSavedNet[i]))
+            gradient = np.dot(gradient, reversedSavedWeight[i - 1].T,
+                              derivativeOfActivationFunction(reversedSavedNet[i]))
         savedGradient.append(gradient)
     return savedGradient
 
 
 def updateWeight(gradientList, savedWeight, hiddenLayers, feature, savedNet, etaValue, savedBiasMatrix, bias):
     gradientList.reverse()
-
-    newWeightList = list()
-    newBiasList = list()
+    updatedWeightList = list()
+    updatedBiasList = list()
     feature = np.array([feature])
-    for i in hiddenLayers:
+    for i in range(len(hiddenLayers) - 1):
+        newBias = (savedBiasMatrix[i].T + gradientList[i].T * etaValue) * bias
+        updatedBiasList.append(newBias.T)
         if i == 0:
-            if bias != 0:
-                newBias = savedBiasMatrix[i].T + gradientList[i].T * etaValue
-                newBiasList.append(newBias.T)
-            else:
-                newBias = savedBiasMatrix[i]
-                newBiasList.append(newBias)
             newWeight = savedWeight[i].T + np.dot(gradientList[i].T, feature[i]) * etaValue
         else:
-            if bias != 0:
-                newBias = savedBiasMatrix[i].T + gradientList[i].T * etaValue
-                newBiasList.append(newBias.T)
-            else:
-                newBias = savedBiasMatrix[i]
-                newBiasList.append(newBias)
             newWeight = savedWeight[i].T + np.dot(gradientList[i].T, savedNet[i - 1]) * etaValue
-        newWeightList.append(newWeight)
 
-    return newWeightList, newBiasList
+        updatedWeightList.append(newWeight.T)
+
+    return updatedWeightList, updatedBiasList
 
 
 def derivativeOfActivationFunction(value):
@@ -230,24 +199,44 @@ def test(dataSet, weightMatrix, biasMatrix, hiddenLayers):
                      dataSet['gender'][i], dataSet['body_mass_g'][i]]]
         features = np.array(features)
 
-        actualClass = ''
-        if dataSet['species'][i] == 1:
-            actualClass = [1, 0, 0]
-        elif dataSet['species'][i] == 2:
-            actualClass = [0, 1, 0]
-        else:
-            actualClass = [0, 0, 1]
+        actualClass = getActualClass(dataSet['species'][i])
         actualList.append(np.array(actualClass))
 
-        for j in hiddenLayers:
+        for j in range(len(hiddenLayers) - 1):
             if j == 0:
-                net = np.dot(features, weightMatrix[j].T) + biasMatrix[j]
+                net = np.dot(features, weightMatrix[j]) + biasMatrix[j]
             else:
-                net = np.dot(fNet, weightMatrix[j].T) + biasMatrix[j]
+                net = np.dot(fNet, weightMatrix[j]) + biasMatrix[j]
             fNet = activationFunction(net)
 
         predictedList.append(fNet)
 
+    predictedList = selectPredictedClass(predictedList)
+
+    confMatrix = np.zeros((3, 3))
+    totalTruePos = 0
+    # for loop to save the old confusion matrix results
+    # with the new confusion matrix from the next actual and predicted class
+    for d in range(len(dataSet)):
+        result, truePos = confusionMatrix(list(predictedList[d]), list(actualList[d]))
+        cm = np.add(result, confMatrix)
+        totalTruePos += truePos
+    print(confMatrix)
+    print('Accuracy:', totalTruePos / len(dataSet) * 100, '%')
+
+
+def getActualClass(selectedClass):
+    if selectedClass == 1:
+        actualClass = [1, 0, 0]
+    elif selectedClass == 2:
+        actualClass = [0, 1, 0]
+    else:
+        actualClass = [0, 0, 1]
+
+    return actualClass
+
+
+def selectPredictedClass(predictedList):
     for x in range(len(predictedList)):
         predictedList[x] = predictedList[x].flatten()
         maxNumber = max(predictedList[x])
@@ -257,44 +246,35 @@ def test(dataSet, weightMatrix, biasMatrix, hiddenLayers):
             else:
                 predictedList[x][y] = 0
         predictedList[x] = predictedList[x].astype(int)
-
-    cm = np.zeros((3, 3))
-    totalTruePos = 0
-    for d in range(len(dataSet)):
-        result, truePos = np.array(confusionMatrix(predictedList[d], actualList[d]))
-        cm = np.add(result, cm)
-        totalTruePos += truePos
-    print(cm)
-    print('Accuracy:', totalTruePos / len(dataSet) * 100, '%')
+    return predictedList
 
 
+# Create confusion Matrix for actual class and predicted class
 def confusionMatrix(predictedList, actualList):
-    cm = [[0] * 3 for _ in range(3)]
-    actualList = list(actualList)
-    predictedList = list(predictedList)
+    confMatrix = np.zeros((3, 3))
     truePos = 0
     if actualList == predictedList:
-        if actualList == [1, 0, 0]:
-            cm[0][0] += 1
-        if actualList == [0, 1, 0]:
-            cm[1][1] += 1
-        if actualList == [0, 0, 1]:
-            cm[2][2] += 1
-        truePos += 1
+        if predictedList == [1, 0, 0]:
+            confMatrix[0][0] = 1
+        if predictedList == [0, 1, 0]:
+            confMatrix[1][1] = 1
+        if predictedList == [0, 0, 1]:
+            confMatrix[2][2] = 1
+        truePos = 1
     if actualList != predictedList:
         if actualList == [1, 0, 0] and predictedList == [0, 1, 0]:
-            cm[0][1] += 1
+            confMatrix[0][1] = 1
         elif actualList == [1, 0, 0] and predictedList == [0, 0, 1]:
-            cm[0][2] += 1
+            confMatrix[0][2] = 1
         elif actualList == [0, 1, 0] and predictedList == [1, 0, 0]:
-            cm[1][0] += 1
+            confMatrix[1][0] = 1
         elif actualList == [0, 1, 0] and predictedList == [0, 0, 1]:
-            cm[1][2] += 1
+            confMatrix[1][2] = 1
         elif actualList == [0, 0, 1] and predictedList == [1, 0, 0]:
-            cm[2][0] += 1
+            confMatrix[2][0] = 1
         elif actualList == [0, 0, 1] and predictedList == [0, 1, 0]:
-            cm[2][1] += 1
-    return cm, truePos
+            confMatrix[2][1] = 1
+    return confMatrix, truePos
 
 
 if __name__ == '__main__':
@@ -309,14 +289,14 @@ if __name__ == '__main__':
     layersText = StringVar()
     layersHeader = Label(main_window, text="Number of layer").pack()
     layersTextField = ttk.Entry(main_window, width=20, textvariable=layersText)
-    layersText.set('7')
+    layersText.set('3')
     layersTextField.pack()
 
     # Add number of neurons
     neuronsText = StringVar()
     neuronsHeader = Label(main_window, text="Add Neurons").pack()
     neuronsTextField = ttk.Entry(main_window, width=20, textvariable=neuronsText)
-    neuronsText.set('7 5 3 5 8 9 3')
+    neuronsText.set('7 5 3')
     neuronsTextField.pack()
 
     # Select Activation function
