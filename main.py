@@ -1,20 +1,17 @@
 from tkinter import *
 from tkinter import ttk
-from tkinter.ttk import Separator
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 from sklearn.utils import shuffle
 from sklearn.model_selection import train_test_split
-import random
 
-selectedFunction = ''
 savedGradient = []
-
+selectedFunction = ''
 functions = [
     "Sigmoid",
     "Hyperbloic Tangent",
 ]
+
 
 # Remove null values from gender column and convert it to numerical values
 # Normalize all values of all features to range between 0 and 1
@@ -49,18 +46,21 @@ def getDataFromGUI(dataframe):
     epochValue = int(epochTextField.get())
     layersValue = int(layersTextField.get())
     neuronsValue = neuronsTextField.get()
-    # To get the number of classes for the output layer
-    numberOfClasses = len(dataframe.species.unique())
     # Split neurons string in to list of integers
     neuronsValue = neuronsValue.split()
     neuronsValue = [eval(x) for x in neuronsValue]
+
+    # To get the number of classes for the output layer
+    numberOfClasses = len(dataframe.species.unique())
     neuronsValue.append(numberOfClasses)
+    # insert number of features for the input layer
     neuronsValue.insert(0, 5)
+
     # Combine hidden layers with the output layer and neurons into dictionary
     # hiddenLayers = dict(zip(range(layersValue+1), neuronsValue))
     hiddenLayers = neuronsValue
 
-    print('Hidden Layers: ', hiddenLayers)
+    # check if bias is selected or not
     if biasCheckBox.get() == 0:
         bias = 0
     else:
@@ -73,16 +73,19 @@ def getDataFromGUI(dataframe):
 # Split train and test dataframes and shuffle them
 def dataSplitter(dataframe):
     dataframe.species.replace({'Adelie': 1, 'Gentoo': 2, 'Chinstrap': 3}, inplace=True)
+    # Split each class into separated DF
     class1DataFrame = dataframe.loc[dataframe['species'].isin([1])]
     class2DataFrame = dataframe.loc[dataframe['species'].isin([2])]
     class3DataFrame = dataframe.loc[dataframe['species'].isin([3])]
+    # Split DF into train test DF
     class1train, class1test = train_test_split(class1DataFrame, test_size=0.4)
     class2train, class2test = train_test_split(class2DataFrame, test_size=0.4)
     class3train, class3test = train_test_split(class3DataFrame, test_size=0.4)
+    # Merge all testSet and trainSet DF together
     testSet = pd.concat([class1test, class2test, class3test])
     trainSet = pd.concat([class1train, class2train, class3train])
-    testSet = shuffle(testSet)
     trainSet = shuffle(trainSet)
+
     trainSet = trainSet.reset_index()
     trainSet = trainSet.drop(columns=['index'])
     testSet = testSet.reset_index()
@@ -146,8 +149,10 @@ def backward(savedNet, savedWeight, actual):
     reversedSavedNet = savedNet[::-1]
     reversedSavedWeight = savedWeight[::-1]
     for i in range(len(reversedSavedNet)):
+        # Output layer equation
         if i == 0:
             gradient = (actual - reversedSavedNet[i]) * derivativeOfActivationFunction(reversedSavedNet[i])
+        # hidden layers equation
         else:
             gradient = np.dot(gradient, reversedSavedWeight[i - 1].T,
                               derivativeOfActivationFunction(reversedSavedNet[i]))
@@ -163,8 +168,11 @@ def updateWeight(gradientList, savedWeight, hiddenLayers, feature, savedNet, eta
     for i in range(len(hiddenLayers) - 1):
         newBias = (savedBiasMatrix[i].T + gradientList[i].T * etaValue) * bias
         updatedBiasList.append(newBias.T)
+
+        # Input layer equation
         if i == 0:
             newWeight = savedWeight[i].T + np.dot(gradientList[i].T, feature[i]) * etaValue
+        # hidden layers equation
         else:
             newWeight = savedWeight[i].T + np.dot(gradientList[i].T, savedNet[i - 1]) * etaValue
 
