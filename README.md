@@ -13,3 +13,4 @@ Multi-layer perceptron using backpropagation on penguins' data
 
 ![image](https://user-images.githubusercontent.com/88054373/206042707-53242619-0a29-4df9-b8bd-d915e8f8c934.png)
 ![image](https://user-images.githubusercontent.com/88054373/206042786-adb086ff-867a-4c93-a0da-3482e35b2331.png)
+
